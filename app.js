@@ -18,6 +18,9 @@ const sample = {
   tracked:[]
 };
 let data = loadData();
+data.rfqs = data.rfqs || [];
+data.quotes = data.quotes || [];
+data.orders = data.orders || [];
 let currentPage = "dashboard";
 let selectedProductIds = new Set();
 const pageNames = {dashboard:"구매 대시보드",assistant:"AI 구매 상담",products:"상품 탐색",compare:"상품 비교",tracker:"가격 추적",procurement:"기업 구매 관리",rfq:"견적 요청 센터",suppliers:"공급업체 관리",reports:"분석 리포트"};
@@ -59,15 +62,73 @@ function compare(){return `${head("상품 비교","상품 탐색에서 비교할
 function renderComparison(){let chosen=data.products.filter(p=>selectedProductIds.has(p.id));document.getElementById("compareResult").innerHTML=chosen.length?table(["상품명","공급업체","가격","사양","메모"],chosen.map(p=>`<tr><td><b>${esc(p.name)}</b></td><td>${esc(p.supplier)}</td><td>${money(p.price)}</td><td>${esc(p.spec)}</td><td>${esc(p.note||"")}</td></tr>`).join("")):`<div class="empty">비교할 상품을 먼저 선택해 주세요.</div>`}
 function tracker(){return `${head("가격 추적 관리","관심 상품의 목표 가격과 확인 가격을 기록합니다.",`<button class="btn btn-primary" onclick="addTrack()">＋ 가격 기록</button>`)}<div class="card"><p class="muted">가격 추적은 직접 입력한 가격 이력을 관리합니다. 외부 쇼핑몰 가격을 자동 수집하지 않습니다.</p>${table(["상품","확인 가격","목표 가격","확인일","메모"],data.tracked.map(t=>`<tr><td>${esc(t.item)}</td><td>${money(t.price)}</td><td>${money(t.target)}</td><td>${esc(t.date)}</td><td>${esc(t.memo)}</td></tr>`).join(""))}</div>`}
 function addTrack(){let item=prompt("상품명");if(!item)return;let price=Number(prompt("현재 확인 가격(숫자)","0"));let target=Number(prompt("목표 가격(숫자)","0"));data.tracked.push({item,price,target,date:new Date().toISOString().slice(0,10),memo:price<=target?"목표 가격 이하":"목표 가격 초과"});save();render();toast("가격 기록을 저장했습니다.")}
-function procurement(){return `${head("기업 구매 관리","부서별 구매 요청, 수량, 예산과 승인 상태를 관리합니다.",`<button class="btn btn-primary" onclick="showPurchaseForm()">＋ 구매 요청 등록</button>`)}<div class="card">${table(["요청일","품목","부서","수량","예산","상태","관리"],data.purchases.map(p=>`<tr><td>${esc(p.date)}</td><td><b>${esc(p.item)}</b></td><td>${esc(p.dept)}</td><td>${p.qty}</td><td>${money(p.budget)}</td><td><span class="status ${p.status==="승인 완료"?"done":"wait"}">${esc(p.status)}</span></td><td><button class="btn btn-soft" onclick="cycleStatus(${p.id})">상태 변경</button></td></tr>`).join(""))}</div><div id="purchaseForm"></div>`}
-function showPurchaseForm(){document.getElementById("purchaseForm").innerHTML=`<div class="card" style="margin-top:14px"><h3 class="card-title">구매 요청 등록</h3><div class="form-grid"><div class="field"><label>품목</label><input id="buyItem"></div><div class="field"><label>부서</label><input id="buyDept"></div><div class="field"><label>수량</label><input id="buyQty" type="number" value="1"></div><div class="field"><label>예산 (원)</label><input id="buyBudget" type="number"></div></div><div class="actions"><button class="btn btn-primary" onclick="addPurchase()">요청 저장</button></div></div>`}
+function procurement(){
+ const stages=["검토 중","견적 수집 중","승인 완료","발주 완료","납품 완료","반려"];
+ return `${head("기업 구매 관리","구매 요청부터 승인·발주·납품까지 진행 상태를 관리합니다.",`<button class="btn btn-primary" onclick="showPurchaseForm()">＋ 구매 요청 등록</button>`)}
+ <div class="card"><h3 class="card-title">구매 요청 현황</h3>${table(["요청일","품목","부서","수량","예산","진행 상태","관리"],data.purchases.map(p=>`<tr><td>${esc(p.date)}</td><td><b>${esc(p.item)}</b></td><td>${esc(p.dept)}</td><td>${p.qty}</td><td>${money(p.budget)}</td><td><span class="status ${p.status==="납품 완료"?"done":p.status==="반려"?"":"wait"}">${esc(p.status)}</span></td><td><button class="btn btn-soft" onclick="cycleStatus(${p.id})">다음 단계</button></td></tr>`).join(""))}</div>
+ <div class="card" style="margin-top:16px"><h3 class="card-title">발주 관리</h3>${table(["발주일","품목","공급업체","수량","발주 금액","상태","관리"],data.orders.map(o=>`<tr><td>${esc(o.date)}</td><td><b>${esc(o.item)}</b></td><td>${esc(o.supplier)}</td><td>${o.qty}</td><td>${money(o.amount)}</td><td><span class="status ${o.status==="납품 완료"?"done":"wait"}">${esc(o.status)}</span></td><td><button class="btn btn-soft" onclick="cycleOrder(${o.id})">상태 변경</button></td></tr>`).join(""))}</div>
+ <div id="purchaseForm"></div>`;
+}
+function showPurchaseForm(){document.getElementById("purchaseForm").innerHTML=`<div class="card" style="margin-top:14px"><h3 class="card-title">구매 요청 등록</h3><div class="form-grid"><div class="field"><label>품목</label><input id="buyItem"></div><div class="field"><label>요청 부서</label><input id="buyDept"></div><div class="field"><label>수량</label><input id="buyQty" type="number" min="1" value="1"></div><div class="field"><label>예산 (원)</label><input id="buyBudget" type="number" min="0"></div></div><div class="actions"><button class="btn btn-primary" onclick="addPurchase()">요청 저장</button></div></div>`}
 function addPurchase(){let item=document.getElementById("buyItem").value.trim();if(!item){toast("품목을 입력해 주세요.");return}data.purchases.push({id:Date.now(),item,dept:document.getElementById("buyDept").value,qty:Number(document.getElementById("buyQty").value)||1,budget:Number(document.getElementById("buyBudget").value)||0,status:"검토 중",date:new Date().toISOString().slice(0,10)});save();render();toast("구매 요청을 저장했습니다.")}
-function cycleStatus(id){let p=data.purchases.find(x=>x.id===id);let states=["검토 중","승인 완료","보류"];p.status=states[(states.indexOf(p.status)+1)%states.length];save();render()}
-function rfq(){return `${head("견적 요청 센터","공급업체에 전달할 견적 요청 내용을 작성하고 출력합니다.")}<div class="card"><div class="form-grid"><div class="field"><label>회사명</label><input id="rfqCompany" value="YULIM INFOTECH CO.,LTD."></div><div class="field"><label>담당 부서 / 담당자</label><input id="rfqOwner" placeholder="예: 경영지원팀 / 홍길동"></div><div class="field"><label>요청 품목</label><input id="rfqItem" placeholder="예: 업무용 노트북"></div><div class="field"><label>수량</label><input id="rfqQty" type="number" value="1"></div><div class="field"><label>회신 희망일</label><input id="rfqDue" type="date"></div><div class="field"><label>공급업체</label><input id="rfqSupplier" placeholder="업체명"></div><div class="field full"><label>상세 사양 및 요청사항</label><textarea id="rfqDetail" placeholder="필요 사양, 납품 장소, 보증 조건 등을 입력하세요."></textarea></div></div><div class="actions"><button class="btn btn-primary" onclick="printRFQ()">견적 요청서 미리보기 / 인쇄</button></div></div>`}
-function printRFQ(){let fields=["rfqCompany","rfqOwner","rfqItem","rfqQty","rfqDue","rfqSupplier","rfqDetail"];let v=fields.map(id=>document.getElementById(id).value);let w=window.open("","_blank");if(!w){toast("팝업을 허용해 주세요.");return}w.document.write(`<html><head><title>견적 요청서</title><style>body{font-family:Arial,sans-serif;padding:40px;color:#222}h1{color:#102b50}table{width:100%;border-collapse:collapse}td{border:1px solid #ccc;padding:13px}td:first-child{width:25%;background:#f4f7fa;font-weight:bold}p{line-height:1.8}</style></head><body><h1>견적 요청서 (RFQ)</h1><p>${esc(v[0])}</p><table>${["담당 부서 / 담당자","요청 품목","수량","회신 희망일","공급업체","상세 사양 및 요청사항"].map((k,i)=>`<tr><td>${k}</td><td>${esc(v[i+1]).replace(/\\n/g,"<br>")}</td></tr>`).join("")}</table><p>상기 내용에 대한 견적 및 납기 정보를 회신해 주시기 바랍니다.</p><script>window.print()<\\/script></body></html>`);w.document.close()}
+function cycleStatus(id){let p=data.purchases.find(x=>x.id===id);let states=["검토 중","견적 수집 중","승인 완료","발주 완료","납품 완료","반려"];p.status=states[(states.indexOf(p.status)+1)%states.length];save();render()}
+function cycleOrder(id){let o=data.orders.find(x=>x.id===id);let states=["발주 대기","발주 완료","납품 완료","취소"];o.status=states[(states.indexOf(o.status)+1)%states.length];save();render()}
+function rfq(){
+ return `${head("견적 요청 센터","견적 요청서를 저장하고 공급업체별 회신 가격을 비교합니다.") }
+ <div class="grid two-col">
+  <div class="card"><h3 class="card-title">새 견적 요청 등록</h3>
+   <div class="form-grid">
+    <div class="field"><label>요청 품목</label><input id="rfqItem" placeholder="예: 업무용 노트북"></div>
+    <div class="field"><label>수량</label><input id="rfqQty" type="number" min="1" value="1"></div>
+    <div class="field"><label>요청 부서</label><input id="rfqDept" placeholder="예: 경영지원팀"></div>
+    <div class="field"><label>회신 희망일</label><input id="rfqDue" type="date"></div>
+    <div class="field full"><label>상세 사양 및 요청사항</label><textarea id="rfqDetail" placeholder="필요 사양, 납품 장소, 보증 조건 등을 입력하세요."></textarea></div>
+   </div>
+   <div class="actions"><button class="btn btn-primary" onclick="saveRFQ()">견적 요청 저장</button></div>
+  </div>
+  <div class="card"><h3 class="card-title">공급업체 견적 등록</h3>
+   <div class="form-grid">
+    <div class="field full"><label>견적 요청 선택</label><select id="quoteRfq">${data.rfqs.map(r=>`<option value="${r.id}">${esc(r.item)} · ${esc(r.dept)}</option>`).join("")}</select></div>
+    <div class="field"><label>공급업체</label><input id="quoteSupplier" list="supplierNames" placeholder="업체명"><datalist id="supplierNames">${data.suppliers.map(x=>`<option value="${esc(x.name)}">`).join("")}</datalist></div>
+    <div class="field"><label>견적 금액 (원)</label><input id="quotePrice" type="number" min="0" placeholder="예: 1250000"></div>
+    <div class="field"><label>예상 납기</label><input id="quoteDelivery" placeholder="예: 발주 후 7일"></div>
+    <div class="field"><label>보증 조건</label><input id="quoteWarranty" placeholder="예: 1년 무상"></div>
+   </div>
+   <div class="actions"><button class="btn btn-primary" onclick="saveQuote()" ${data.rfqs.length?"":"disabled"}>견적 회신 저장</button></div>
+   <p class="footer-note">공급업체의 실제 회신 내용을 직접 입력하는 방식입니다. 자동 이메일 발송은 아직 연결되지 않았습니다.</p>
+  </div>
+ </div>
+ <div class="card" style="margin-top:16px"><h3 class="card-title">견적 요청 목록</h3>
+ ${table(["등록일","품목","부서","수량","희망 회신일","견적 수","관리"],data.rfqs.map(r=>`<tr><td>${esc(r.date)}</td><td><b>${esc(r.item)}</b></td><td>${esc(r.dept)}</td><td>${r.qty}</td><td>${esc(r.due||"-")}</td><td>${data.quotes.filter(q=>q.rfqId===r.id).length}건</td><td><button class="btn btn-soft" onclick="showQuotes(${r.id})">견적 비교</button></td></tr>`).join(""))}
+ <div id="quoteCompare" style="margin-top:14px"></div></div>`;
+}
+function saveRFQ(){
+ const item=document.getElementById("rfqItem").value.trim();
+ if(!item){toast("요청 품목을 입력해 주세요.");return}
+ data.rfqs.push({id:Date.now(),item,qty:Number(document.getElementById("rfqQty").value)||1,dept:document.getElementById("rfqDept").value,due:document.getElementById("rfqDue").value,detail:document.getElementById("rfqDetail").value,date:new Date().toISOString().slice(0,10),status:"견적 수집 중"});
+ save();render();toast("견적 요청을 저장했습니다.");
+}
+function saveQuote(){
+ const rfqId=Number(document.getElementById("quoteRfq").value),supplier=document.getElementById("quoteSupplier").value.trim(),price=Number(document.getElementById("quotePrice").value);
+ if(!rfqId){toast("먼저 견적 요청을 등록해 주세요.");return}
+ if(!supplier||!price){toast("공급업체와 견적 금액을 입력해 주세요.");return}
+ data.quotes.push({id:Date.now(),rfqId,supplier,price,delivery:document.getElementById("quoteDelivery").value,warranty:document.getElementById("quoteWarranty").value,date:new Date().toISOString().slice(0,10)});
+ save();render();toast("공급업체 견적을 저장했습니다.");
+}
+function showQuotes(id){
+ const r=data.rfqs.find(x=>x.id===id),qs=data.quotes.filter(x=>x.rfqId===id).sort((a,b)=>a.price-b.price);
+ const el=document.getElementById("quoteCompare");
+ el.innerHTML=`<h3 class="card-title">${esc(r.item)} — 공급업체 견적 비교</h3>${qs.length?table(["공급업체","견적 금액","납기","보증 조건","등록일","선택"],qs.map((q,i)=>`<tr><td><b>${esc(q.supplier)}</b>${i===0?` <span class="status done">최저 견적</span>`:""}</td><td>${money(q.price)}</td><td>${esc(q.delivery||"-")}</td><td>${esc(q.warranty||"-")}</td><td>${esc(q.date)}</td><td><button class="btn btn-soft" onclick="createOrder(${r.id},${q.id})">이 견적으로 발주</button></td></tr>`).join("")):`<div class="empty">아직 등록된 견적이 없습니다. 공급업체 회신을 입력해 주세요.</div>`}`;
+}
+function createOrder(rfqId,quoteId){
+ const r=data.rfqs.find(x=>x.id===rfqId),q=data.quotes.find(x=>x.id===quoteId);
+ if(!confirm(`${q.supplier}의 ${money(q.price)} 견적을 발주 대기 목록에 등록할까요?`))return;
+ data.orders.push({id:Date.now(),rfqId,quoteId,item:r.item,qty:r.qty,supplier:q.supplier,amount:q.price,status:"발주 대기",date:new Date().toISOString().slice(0,10)});
+ r.status="발주 대기";save();toast("발주 대기 목록에 등록했습니다.");go("procurement");
+}
 function suppliers(){return `${head("공급업체 관리","공급업체 연락처와 취급 분야를 관리합니다.",`<button class="btn btn-primary" onclick="addSupplier()">＋ 업체 등록</button>`)}<div class="card">${table(["업체명","연락처","취급 분야","메모"],data.suppliers.map(s=>`<tr><td><b>${esc(s.name)}</b></td><td>${esc(s.contact)}</td><td>${esc(s.category)}</td><td>${esc(s.memo)}</td></tr>`).join(""))}</div>`}
 function addSupplier(){let name=prompt("업체명");if(!name)return;let contact=prompt("연락처","");let category=prompt("취급 분야","");data.suppliers.push({id:Date.now(),name,contact,category,memo:""});save();render();toast("공급업체를 등록했습니다.")}
-function reports(){let total=data.purchases.reduce((s,p)=>s+(Number(p.budget)||0),0),approved=data.purchases.filter(p=>p.status==="승인 완료").length;let byDept={};data.purchases.forEach(p=>byDept[p.dept||"미지정"]=(byDept[p.dept||"미지정"]||0)+(Number(p.budget)||0));return `${head("구매 분석 리포트","현재 브라우저에 저장된 구매 요청 데이터를 요약합니다.",`<button class="btn btn-outline" onclick="exportCSV()">CSV 내보내기</button>`)}<div class="grid stats">${stat("구매 요청 예산",money(total),"등록된 요청 예산 합계")}${stat("승인 완료",approved+"건","현재 승인 완료 건수")}${stat("공급업체",data.suppliers.length+"곳","등록된 업체")}${stat("가격 추적",data.tracked.length+"건","직접 기록한 가격")}</div><div class="card"><h3 class="card-title">부서별 요청 예산</h3>${Object.entries(byDept).length?Object.entries(byDept).map(([dept,val])=>`<div style="margin:15px 0"><div style="display:flex;justify-content:space-between"><b>${esc(dept)}</b><span>${money(val)}</span></div><div class="bar"><i style="width:${Math.max(4,total?val/total*100:0)}%"></i></div></div>`).join(""):`<div class="empty">분석할 구매 데이터가 없습니다.</div>`}</div><p class="footer-note">절감액은 비교 기준 가격과 실제 구매 가격이 검증된 경우에만 계산해야 합니다. 현재 샘플에는 검증된 절감 실적이 포함되어 있지 않습니다.</p>`}
+function reports(){let total=data.purchases.reduce((s,p)=>s+(Number(p.budget)||0),0),approved=data.purchases.filter(p=>p.status==="승인 완료"||p.status==="발주 완료"||p.status==="납품 완료").length;let byDept={};data.purchases.forEach(p=>byDept[p.dept||"미지정"]=(byDept[p.dept||"미지정"]||0)+(Number(p.budget)||0));return `${head("구매 분석 리포트","현재 브라우저에 저장된 구매 요청 데이터를 요약합니다.",`<button class="btn btn-outline" onclick="exportCSV()">CSV 내보내기</button>`)}<div class="grid stats">${stat("구매 요청 예산",money(total),"등록된 요청 예산 합계")}${stat("승인 완료",approved+"건","현재 승인 완료 건수")}${stat("공급업체",data.suppliers.length+"곳","등록된 업체")}${stat("가격 추적",data.tracked.length+"건","직접 기록한 가격")}${stat("발주 건수",data.orders.length+"건","견적에서 생성된 발주")}</div><div class="card"><h3 class="card-title">부서별 요청 예산</h3>${Object.entries(byDept).length?Object.entries(byDept).map(([dept,val])=>`<div style="margin:15px 0"><div style="display:flex;justify-content:space-between"><b>${esc(dept)}</b><span>${money(val)}</span></div><div class="bar"><i style="width:${Math.max(4,total?val/total*100:0)}%"></i></div></div>`).join(""):`<div class="empty">분석할 구매 데이터가 없습니다.</div>`}</div><p class="footer-note">절감액은 비교 기준 가격과 실제 구매 가격이 검증된 경우에만 계산해야 합니다. 현재 샘플에는 검증된 절감 실적이 포함되어 있지 않습니다.</p>`}
 function go(page){currentPage=page;render()}
 function exportAll(){const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});download(blob,"yulim-buyer-backup.json");toast("전체 데이터를 백업했습니다.")}
 function exportCSV(){let rows=[["요청일","품목","부서","수량","예산","상태"],...data.purchases.map(p=>[p.date,p.item,p.dept,p.qty,p.budget,p.status])];let csv="\\uFEFF"+rows.map(r=>r.map(v=>`"${String(v??"").replace(/"/g,'""')}"`).join(",")).join("\\n");download(new Blob([csv],{type:"text/csv;charset=utf-8"}),"yulim-purchases.csv");}
