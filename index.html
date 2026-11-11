@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#102b50">
+  <meta name="description" content="YULIM AI BUYER OS - 기업 구매 업무를 더 똑똑하고 효율적으로">
+  <title>YULIM AI BUYER OS</title>
+  <link rel="icon" href="assets/yulimit_logo.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="logo-wrap"><img src="assets/yulimit_logo.png" alt="YULIM INFOTECH 공식 로고"></div>
+        <div class="brand-product">AI BUYER <b>OS</b></div>
+        <div class="brand-caption">SMART PROCUREMENT PLATFORM</div>
+      </div>
+      <div class="nav-label">WORKSPACE</div>
+      <nav id="mainNav">
+        <button class="nav-item active" data-page="dashboard"><span>▦</span> 대시보드</button>
+        <button class="nav-item" data-page="assistant"><span>✦</span> AI 구매 상담</button>
+        <button class="nav-item" data-page="products"><span>⌕</span> 상품 탐색</button>
+        <button class="nav-item" data-page="compare"><span>⇄</span> 상품 비교</button>
+        <button class="nav-item" data-page="tracker"><span>◷</span> 가격 추적</button>
+        <button class="nav-item" data-page="procurement"><span>▤</span> 기업 구매 관리</button>
+        <button class="nav-item" data-page="rfq"><span>✉</span> 견적 요청 센터</button>
+        <button class="nav-item" data-page="suppliers"><span>♧</span> 공급업체 관리</button>
+        <button class="nav-item" data-page="reports"><span>▥</span> 분석 리포트</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="offline-pill"><i></i> 로컬 모드 · 서버 연결 없음</div>
+        <small>YULIM INFOTECH CO.,LTD.</small>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="mobile-menu" id="mobileMenu" aria-label="메뉴 열기">☰</button>
+        <div><div class="eyebrow">YULIM INFOTECH DIGITAL WORKSPACE</div><div class="top-title" id="pageTitle">구매 대시보드</div></div>
+        <div class="top-actions">
+          <span class="local-tag">● LOCAL DEMO</span>
+          <button class="btn btn-outline" id="exportAll">데이터 백업</button>
+        </div>
+      </header>
+
+      <section class="content">
+        <div class="notice"><b>초기 MVP 안내</b> 현재 버전은 무료·오프라인 시제품입니다. 입력 데이터는 이 브라우저에만 저장되며, 실시간 외부 최저가 검색이나 실제 AI 분석은 아직 연결되어 있지 않습니다.</div>
+        <div id="pageContent"></div>
+      </section>
+      <footer>© 2026 YULIM INFOTECH CO.,LTD. <span>Buy Smarter. Save More. Grow Together.</span></footer>
+    </main>
+  </div>
+  <div class="toast" id="toast"></div>
+  <script src="app.js"></script>
+</body>
+</html>
